@@ -1,0 +1,13 @@
+## 📸 Preview
+
+### Forced SafeSearch Enforcement
+SafeSearch is automatically enabled and locked across search engines to prevent explicit search results:
+
+![CleanShield SafeSearch Enforcement](safesearch-enforced.png)
+
+### Extension Configuration & Details
+Overview of permissions, site access settings, and active background service worker state:
+
+| Extension Manager | Extension Details |
+| :---: | :---: |
+| ![Extensions List](extensions-manager.png) | ![Extension Details](extension-details.png) |
