@@ -56,4 +56,4 @@ Overview of permissions, site access settings, and active background service wor
 
 | Extension Manager | Extension Details |
 | :---: | :---: |
-| ![Extensions List](assets/extensions-manager.png) | ![Extension Details](extension-details.png.png) |
+| ![Extensions List](extensions-manager.png.png) | ![Extension Details](extension-details.png.png) |
