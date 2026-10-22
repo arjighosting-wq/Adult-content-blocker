@@ -49,7 +49,7 @@ CleanShield runs 100% locally on your browser. No personal data, telemetry, or s
 ### Forced SafeSearch Enforcement
 SafeSearch is automatically enabled and locked across search engines to prevent explicit search results:
 
-![CleanShield SafeSearch Enforcement](assets/safesearch-enforced.png)
+![CleanShield SafeSearch Enforcement](safesearch-enforced.png.png)
 
 ### Extension Configuration & Details
 Overview of permissions, site access settings, and active background service worker state:
