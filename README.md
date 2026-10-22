@@ -43,3 +43,17 @@
 ## 🔒 Privacy & Security
 
 CleanShield runs 100% locally on your browser. No personal data, telemetry, or site tracking information is ever collected or sent to external servers.
+
+## 📸 Preview
+
+### Forced SafeSearch Enforcement
+SafeSearch is automatically enabled and locked across search engines to prevent explicit search results:
+
+![CleanShield SafeSearch Enforcement](assets/safesearch-enforced.png)
+
+### Extension Configuration & Details
+Overview of permissions, site access settings, and active background service worker state:
+
+| Extension Manager | Extension Details |
+| :---: | :---: |
+| ![Extensions List](assets/extensions-manager.png) | ![Extension Details](assets/extension-details.png) |
