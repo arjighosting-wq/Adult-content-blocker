@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CleanShield Settings</title>
+  <link rel="stylesheet" href="clean.css" />
+</head>
+<body>
+  <header class="topbar">
+    <span class="shield-logo small">CS</span>
+    <h1>CleanShield</h1>
+    <span id="lockbadge" class="badge" hidden>Locked</span>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>Status</h2>
+      <div class="row">
+        <span>Protection</span>
+        <label class="switch">
+          <input type="checkbox" id="enabled" />
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="row">
+        <span>Blocklist rules applied</span>
+        <span id="rulesApplied" class="mono">0</span>
+      </div>
+      <div class="row">
+        <span>Total blocked requests (aggregate only)</span>
+        <span id="blockedCount" class="mono">0</span>
+      </div>
+      <div class="row">
+        <span>Filtering engine</span>
+        <span id="engine" class="mono">-</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Mode</h2>
+      <div class="seg">
+        <button data-mode="strict">Strict</button>
+        <button data-mode="balanced">Balanced</button>
+        <button data-mode="custom">Custom</button>
+      </div>
+      <p class="muted small">
+        Strict blocks the highest-confidence adult domains; Balanced uses the
+        standard list; Custom blocks nothing automatically (only SafeSearch and
+        your allowlist apply).
+      </p>
+    </section>
+
+    <section class="card">
+      <h2>Allowlist</h2>
+      <p class="muted small">
+        Sites added here are never blocked, even if a parent domain matches the
+        blocklist.
+      </p>
+      <ul id="allowlist" class="list"></ul>
+      <form id="allowForm" class="inline">
+        <input id="allowDomain" type="text" placeholder="example.com" autocomplete="off" />
+        <button class="btn" type="submit">Add</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2 id="adminTitle">Admin password</h2>
+      <p class="muted small">
+        A password lets you lock settings so children can't disable protection.
+        The password is stored as a salted PBKDF2 hash on this device only.
+      </p>
+      <form id="passForm" class="stack">
+        <label>Current password <input id="currentPass" type="password" autocomplete="off" /></label>
+        <label>New password <input id="newPass" type="password" autocomplete="off" /></label>
+        <label>Confirm <input id="confirmPass" type="password" autocomplete="off" /></label>
+        <button class="btn" type="submit">Save password</button>
+      </form>
+    </section>
+
+    <section class="card" id="lockCard" hidden>
+      <h2>Locked mode</h2>
+      <p class="muted small">
+        When locked, enabling/disabling protection and editing the allowlist
+        require the admin password.
+      </p>
+      <div class="row">
+        <button class="btn" id="lockBtn">Lock now</button>
+      </div>
+    </section>
+
+    <p id="msg" class="msg"></p>
+  </main>
+
+  <script src="options.js"></script>
+</body>
+</html>

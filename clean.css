@@ -1,0 +1,174 @@
+:root {
+  --bg: #0f1222;
+  --card: #171b30;
+  --ink: #e8eaf6;
+  --muted: #9aa2c4;
+  --accent: #4f7cff;
+  --danger: #ff5b6e;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  line-height: 1.5;
+}
+
+main {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 24px 16px 64px;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 24px;
+  background: var(--card);
+  border-bottom: 1px solid #2a2f4d;
+}
+.topbar h1 { font-size: 18px; margin: 0; }
+
+.shield-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--accent), #7a5cff);
+  color: #fff;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+.shield-logo.small { width: 30px; height: 30px; font-size: 13px; border-radius: 8px; }
+
+.badge {
+  margin-left: auto;
+  background: var(--danger);
+  color: #fff;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid #2a2f4d;
+  border-radius: 14px;
+  padding: 20px;
+  margin-top: 20px;
+}
+.card h2 { font-size: 15px; margin: 0 0 12px; }
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid #232848;
+}
+.row:first-of-type { border-top: none; }
+
+.mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 13px; }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+
+.lead { font-size: 16px; }
+
+.actions { display: flex; gap: 12px; margin-top: 20px; flex-wrap: wrap; }
+
+.btn {
+  background: var(--accent);
+  border: none;
+  color: #fff;
+  padding: 9px 16px;
+  border-radius: 9px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  font-size: 14px;
+}
+.btn.ghost { background: transparent; border: 1px solid #3a4170; color: var(--ink); }
+.btn.small { padding: 4px 10px; font-size: 12px; border-radius: 7px; }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.switch { position: relative; display: inline-block; width: 46px; height: 26px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider {
+  position: absolute;
+  inset: 0;
+  background: #3a4170;
+  border-radius: 999px;
+  transition: 0.15s;
+}
+.slider::before {
+  content: "";
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  left: 3px;
+  top: 3px;
+  background: #fff;
+  border-radius: 50%;
+  transition: 0.15s;
+}
+.switch input:checked + .slider { background: var(--accent); }
+.switch input:checked + .slider::before { transform: translateX(20px); }
+
+.seg { display: flex; gap: 8px; }
+.seg button {
+  flex: 1;
+  padding: 9px;
+  background: #232848;
+  border: 1px solid #2a2f4d;
+  color: var(--ink);
+  border-radius: 9px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.seg button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.seg button:disabled { opacity: 0.4; }
+
+.list { list-style: none; padding: 0; margin: 0 0 12px; }
+.list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-top: 1px solid #232848;
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 13px;
+}
+
+.inline { display: flex; gap: 8px; }
+.inline input { flex: 1; }
+
+input[type="text"], input[type="password"] {
+  background: #232848;
+  border: 1px solid #2a2f4d;
+  color: var(--ink);
+  border-radius: 9px;
+  padding: 9px 12px;
+  font-size: 14px;
+  width: 100%;
+}
+.stack { display: grid; gap: 10px; }
+.stack label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+
+.msg { min-height: 20px; font-size: 14px; margin-top: 16px; }
+.msg.ok { color: #6fd98b; }
+.msg.error { color: var(--danger); }
+
+.blocked { text-align: center; padding-top: 8vh; }
+.blocked h1 { font-size: 26px; }
+.blocked .shield-logo { margin: 0 auto 12px; width: 64px; height: 64px; font-size: 22px; border-radius: 16px; }
+.blocked .actions { justify-content: center; }
+.blocked .small { display: block; margin-top: 28px; }
