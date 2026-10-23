@@ -31,8 +31,9 @@ async function refresh() {
     const rm = document.createElement('button');
     rm.textContent = 'Remove';
     rm.className = 'btn ghost small';
+    rm.disabled = s.locked;
     rm.addEventListener('click', async () => {
-      const r = await send({ type: 'removeAllowlist', domain: d, viaAdmin: true });
+      const r = await send({ type: 'removeAllowlist', domain: d });
       if (r.ok) refresh();
       else showMsg(r.error, true);
     });
@@ -42,15 +43,13 @@ async function refresh() {
 
   document.getElementById('lockbadge').hidden = !s.locked;
   document.getElementById('lockCard').hidden = !s.hasAdminPassword;
-  if (s.locked) {
-    document.getElementById('enabled').disabled = true;
-    document.querySelectorAll('.seg button').forEach((b) => (b.disabled = true));
-    document.getElementById('allowDomain').disabled = true;
-  } else {
-    document.getElementById('enabled').disabled = false;
-    document.querySelectorAll('.seg button').forEach((b) => (b.disabled = false));
-    document.getElementById('allowDomain').disabled = false;
-  }
+  document.getElementById('lockRow').hidden = s.locked;
+  document.getElementById('unlockForm').hidden = !s.locked;
+  document.getElementById('enabled').disabled = s.locked;
+  document.querySelectorAll('.seg button').forEach((b) => (b.disabled = s.locked));
+  document.getElementById('allowDomain').disabled = s.locked;
+  const allowSubmit = document.querySelector('#allowForm button');
+  if (allowSubmit) allowSubmit.disabled = s.locked;
 }
 
 async function init() {
@@ -101,7 +100,22 @@ async function init() {
   document.getElementById('lockBtn').addEventListener('click', async () => {
     const r = await send({ type: 'lock' });
     if (r.ok) refresh();
-    else showMsg(r.error, true);
+    else if (String(r.error).includes('set-admin-password-first')) {
+      showMsg('Set an admin password before locking settings', true);
+    } else showMsg(r.error, true);
+  });
+
+  document.getElementById('unlockForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const password = document.getElementById('unlockPass').value;
+    const r = await send({ type: 'unlock', password });
+    if (r.ok) {
+      document.getElementById('unlockPass').value = '';
+      showMsg('Settings unlocked');
+      refresh();
+    } else {
+      showMsg('Incorrect password', true);
+    }
   });
 
   await refresh();

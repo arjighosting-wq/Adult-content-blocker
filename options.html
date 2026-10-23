@@ -81,12 +81,18 @@
     <section class="card" id="lockCard" hidden>
       <h2>Locked mode</h2>
       <p class="muted small">
-        When locked, enabling/disabling protection and editing the allowlist
-        require the admin password.
+        When locked, enabling/disabling protection, changing the filter mode,
+        and editing the allowlist require the admin password. This only locks
+        CleanShield settings on this device; it does not prevent disabling or
+        uninstalling the extension in the browser.
       </p>
-      <div class="row">
+      <div class="row" id="lockRow">
         <button class="btn" id="lockBtn">Lock now</button>
       </div>
+      <form id="unlockForm" class="stack" hidden>
+        <label>Admin password <input id="unlockPass" type="password" autocomplete="off" /></label>
+        <button class="btn" type="submit">Unlock</button>
+      </form>
     </section>
 
     <p id="msg" class="msg"></p>

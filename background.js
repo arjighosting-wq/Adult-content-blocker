@@ -8,8 +8,8 @@
  *   - Emit a heartbeat for tamper/disable detection (aggregate only; no history).
  *
  * Privacy: we never store browsing history. Only an aggregate block counter and
- * the single most recent blocked navigation (cleared when the block page reads
- * it) are kept in local storage.
+ * the hostname plus timestamp of the single most recent blocked navigation
+ * (cleared when the block page reads it) are kept in local storage.
  */
 
 import {
@@ -104,9 +104,8 @@ async function verifyPassword(password, record) {
   return expected.hash === record.hash;
 }
 
-function settingsAllowedToChange(s, viaAdmin) {
-  if (!s.locked) return true;
-  return viaAdmin;
+function settingsAllowedToChange(s) {
+  return !s.locked;
 }
 
 /* ------------------------------------------------------------------ */
@@ -206,7 +205,7 @@ chrome.webNavigation.onBeforeNavigate.addListener(
     const decision = decide(activeBlockMap, allowlistMap, host);
     if (decision.action !== 'block') return;
     await chrome.storage.local.set({
-      pendingBlock: { url: details.url, host: decision.host, ts: Date.now() },
+      pendingBlock: { host: decision.host, ts: Date.now() },
     });
     await persistBlockStats();
   },
@@ -245,7 +244,7 @@ async function handleMessage(msg) {
 
     case 'toggleEnabled': {
       const s = await getSettings();
-      if (!settingsAllowedToChange(s, msg.viaAdmin)) {
+      if (!settingsAllowedToChange(s)) {
         throw new Error('locked');
       }
       const next = await setSettings({ enabled: Boolean(msg.enabled) });
@@ -255,7 +254,7 @@ async function handleMessage(msg) {
 
     case 'setMode': {
       const s = await getSettings();
-      if (!settingsAllowedToChange(s, msg.viaAdmin)) throw new Error('locked');
+      if (!settingsAllowedToChange(s)) throw new Error('locked');
       const modes = ['strict', 'balanced', 'custom'];
       if (!modes.includes(msg.mode)) throw new Error('invalid-mode');
       const next = await setSettings({ mode: msg.mode });
@@ -266,10 +265,12 @@ async function handleMessage(msg) {
 
     case 'setPassword': {
       const s = await getSettings();
+      const password = typeof msg.password === 'string' ? msg.password : '';
+      if (password.length < 8) throw new Error('password-too-short');
       if (s.adminHash && !(await verifyPassword(msg.currentPassword || '', s.adminHash))) {
         throw new Error('invalid-current-password');
       }
-      const next = await setSettings({ adminHash: await hashPassword(msg.password) });
+      const next = await setSettings({ adminHash: await hashPassword(password) });
       return { status: { hasAdminPassword: Boolean(next.adminHash) } };
     }
 
@@ -282,14 +283,15 @@ async function handleMessage(msg) {
 
     case 'lock': {
       const s = await getSettings();
-      if (!settingsAllowedToChange(s, msg.viaAdmin)) throw new Error('locked');
+      if (!s.adminHash) throw new Error('set-admin-password-first');
+      if (!settingsAllowedToChange(s)) throw new Error('locked');
       await setSettings({ locked: true });
       return { locked: true };
     }
 
     case 'addAllowlist': {
       const s = await getSettings();
-      if (!settingsAllowedToChange(s, msg.viaAdmin)) throw new Error('locked');
+      if (!settingsAllowedToChange(s)) throw new Error('locked');
       const host = normalizeHost(msg.domain);
       if (!host || host.includes('*')) throw new Error('invalid-domain');
       if (s.allowlist.includes(host)) return { status: s };
@@ -301,7 +303,7 @@ async function handleMessage(msg) {
 
     case 'removeAllowlist': {
       const s = await getSettings();
-      if (!settingsAllowedToChange(s, msg.viaAdmin)) throw new Error('locked');
+      if (!settingsAllowedToChange(s)) throw new Error('locked');
       const nextList = s.allowlist.filter((d) => d !== msg.domain);
       const next = await setSettings({ allowlist: nextList });
       await refreshMaps();
