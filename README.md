@@ -64,3 +64,21 @@ CleanShield does not intentionally transmit this locally stored information to a
 
 ### SafeSearch
 ![SafeSearch test](screenshots/safesearch-test.png)
+
+## Testing
+
+CleanShield has undergone manual testing in Google Chrome.
+
+| Test | Expected behavior | Result |
+|---|---|---|
+| Domain blocking | A matching test domain redirects to the CleanShield block page | Passed |
+| Google SafeSearch | Search URL contains `safe=active` | Passed |
+| Bing SafeSearch | Search URL contains `adlt=strict` | Passed |
+| DuckDuckGo SafeSearch | Search URL contains `kp=1` | Passed after a URL-matching fix |
+| Yandex SafeSearch | Search URL contains `family=1` | Passed |
+| Settings lock | Settings controls are restricted while locked | Passed |
+| Password verification | Correct password unlocks settings; incorrect password is rejected | Passed |
+
+These results describe the manual tests performed on the development build. They do not establish comprehensive adult-content blocking effectiveness or guarantee that every search result is filtered correctly.
+
+Further testing is needed across additional websites, edge cases, and Chrome configurations before release.
