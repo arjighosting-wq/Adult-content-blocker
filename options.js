@@ -18,6 +18,15 @@ async function refresh() {
   document.getElementById('rulesApplied').textContent = String(s.rulesApplied);
   document.getElementById('blockedCount').textContent = String(s.blockedCount);
   document.getElementById('engine').textContent = s.engine;
+  const diagRow = document.getElementById('diagRow');
+  const diag = document.getElementById('diagnostics');
+  if (s.ruleWarning) {
+    diagRow.hidden = false;
+    diag.textContent = s.ruleWarning;
+  } else {
+    diagRow.hidden = true;
+    diag.textContent = '';
+  }
 
   document.querySelectorAll('.seg button').forEach((b) => {
     b.classList.toggle('active', b.dataset.mode === s.mode);

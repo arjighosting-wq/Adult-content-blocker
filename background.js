@@ -16,6 +16,7 @@ import {
   compileRules,
   decide,
   engineForHost,
+  MAX_DYNAMIC_RULES,
   normalizeHost,
   toDnrRules,
 } from './lib/filtering.js';
@@ -108,27 +109,68 @@ function settingsAllowedToChange(s) {
   return !s.locked;
 }
 
+function errInfo(err) {
+  return {
+    name: (err && err.name) || 'Error',
+    message: err && err.message != null ? String(err.message) : String(err),
+  };
+}
+
+function omittedWarning(omittedBlock, omittedAllow) {
+  if (!omittedBlock && !omittedAllow) return null;
+  return (
+    'Rule budget reached: omitted ' +
+    omittedBlock +
+    ' blocklist and ' +
+    omittedAllow +
+    ' allowlist entries (Chrome limit ' +
+    MAX_DYNAMIC_RULES +
+    ').'
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /* rule application                                                    */
 /* ------------------------------------------------------------------ */
 
 async function applyRules() {
   const s = await getSettings();
-  const blocklist = blocklistForMode(s.mode);
+  const blocklist = s.enabled ? blocklistForMode(s.mode) : [];
   const allowlist = [...embeddedAllow, ...(s.allowlist || [])];
+  const ssRules = s.enabled ? safeSearchRules() : [];
+  const coreBudget = Math.max(0, MAX_DYNAMIC_RULES - ssRules.length);
 
-  const { rules, blockRuleIds, allowRuleIds } = toDnrRules(
-    s.enabled ? blocklist : [],
+  const { rules, blockRuleIds, allowRuleIds, omittedBlock, omittedAllow } = toDnrRules(
+    blocklist,
     allowlist,
     100,
-    4900
+    coreBudget
   );
 
   const existing = await chrome.declarativeNetRequest.getDynamicRules();
   const existingIds = existing.map((r) => r.id);
 
   const coreRules = [...rules];
-  const fullRules = s.enabled ? [...coreRules, ...safeSearchRules()] : coreRules;
+  const fullRules = s.enabled ? [...coreRules, ...ssRules] : coreRules;
+  const warning = omittedWarning(omittedBlock, omittedAllow);
+  const planned = {
+    blocklist: blockRuleIds.length,
+    allowlist: allowRuleIds.length,
+    safeSearch: ssRules.length,
+    total: fullRules.length,
+  };
+
+  console.info('[CleanShield] installing rules', planned);
+
+  const baseState = {
+    blockRuleIds,
+    allowRuleIds,
+    omittedBlock,
+    omittedAllow,
+    warning,
+    planned,
+    appliedAt: Date.now(),
+  };
 
   try {
     await chrome.declarativeNetRequest.updateDynamicRules({
@@ -136,17 +178,57 @@ async function applyRules() {
       addRules: fullRules,
     });
   } catch (err) {
-    // Some browsers reject the regex SafeSearch rules. Fall back to the core
-    // blocklist/allowlist rules so protection still works.
-    console.warn('[CleanShield] full ruleset rejected; retrying without SafeSearch', err);
-    await chrome.declarativeNetRequest.updateDynamicRules({
-      removeRuleIds: existingIds,
-      addRules: coreRules,
+    const fullErr = errInfo(err);
+    console.warn(
+      '[CleanShield] updateDynamicRules failed for full ruleset:',
+      fullErr.name + ': ' + fullErr.message
+    );
+    try {
+      await chrome.declarativeNetRequest.updateDynamicRules({
+        removeRuleIds: existingIds,
+        addRules: coreRules,
+      });
+    } catch (err2) {
+      const fallbackErr = errInfo(err2);
+      console.error(
+        '[CleanShield] updateDynamicRules failed for fallback ruleset:',
+        fallbackErr.name + ': ' + fallbackErr.message,
+        '(full ruleset error was ' + fullErr.name + ': ' + fullErr.message + ')'
+      );
+      await chrome.storage.local.set({
+        ruleState: {
+          ...baseState,
+          count: 0,
+          ok: false,
+          usedFallback: true,
+          error: fullErr,
+          fallbackError: fallbackErr,
+        },
+      });
+      throw err2;
+    }
+    await chrome.storage.local.set({
+      ruleState: {
+        ...baseState,
+        count: coreRules.length,
+        ok: true,
+        usedFallback: true,
+        error: fullErr,
+        fallbackError: null,
+      },
     });
+    return;
   }
 
   await chrome.storage.local.set({
-    ruleState: { blockRuleIds, allowRuleIds, count: fullRules.length, appliedAt: Date.now() },
+    ruleState: {
+      ...baseState,
+      count: fullRules.length,
+      ok: true,
+      usedFallback: false,
+      error: null,
+      fallbackError: null,
+    },
   });
 }
 
@@ -166,7 +248,7 @@ function safeSearchRules() {
     },
     {
       host: 'duckduckgo',
-      filter: '^https?://([^/]*\\.)?duckduckgo\\.com(?:/(?:search))?\\?(?:[^#]*\\bq=([^&#]*))?.*',
+      filter: '^https?://([^/]*\\.)?duckduckgo\\.com(?:/(?:search)?)?\\?(?:[^#]*\\bq=([^&#]*))?.*',
       sub: 'https://duckduckgo.com/?q=\\2&kp=1',
     },
     {
@@ -227,6 +309,19 @@ async function handleMessage(msg) {
   switch (msg.type) {
     case 'getStatus': {
       const s = await getSettings();
+      const rs = (await chrome.storage.local.get('ruleState')).ruleState || {};
+      let ruleWarning = '';
+      if (rs.ok === false) {
+        const a = rs.error ? rs.error.name + ': ' + rs.error.message : 'unknown error';
+        const b = rs.fallbackError
+          ? ' Fallback ' + rs.fallbackError.name + ': ' + rs.fallbackError.message
+          : '';
+        ruleWarning = 'Rule install failed. ' + a + b;
+      } else if (rs.warning) {
+        ruleWarning = rs.warning;
+      } else if (rs.usedFallback && rs.error) {
+        ruleWarning = 'SafeSearch rules skipped (' + rs.error.name + ': ' + rs.error.message + ')';
+      }
       return {
         status: {
           enabled: s.enabled,
@@ -236,8 +331,9 @@ async function handleMessage(msg) {
           allowlist: s.allowlist,
           blockedCount: s.blockedCount,
           heartbeat: s.heartbeat,
-          rulesApplied: (await chrome.storage.local.get('ruleState')).ruleState?.count || 0,
+          rulesApplied: rs.count || 0,
           engine: 'declarativeNetRequest',
+          ruleWarning,
         },
       };
     }
@@ -331,11 +427,14 @@ async function loadRules() {
   embeddedAllow = Array.isArray(allow) ? allow : [];
 }
 
-async function init() {
+let initPromise = null;
+
+async function runInit() {
   try {
     await loadRules();
   } catch (err) {
-    console.error('[CleanShield] failed to load embedded rules', err);
+    const info = errInfo(err);
+    console.error('[CleanShield] failed to load embedded rules', info.name + ': ' + info.message);
   }
   await setSettings({ heartbeat: Date.now() });
   await chrome.storage.local.set({ lastHeartbeat: Date.now() });
@@ -343,11 +442,26 @@ async function init() {
   try {
     await applyRules();
   } catch (err) {
-    console.error('[CleanShield] failed to apply rules on startup', err);
+    const info = errInfo(err);
+    console.error('[CleanShield] failed to apply rules on startup', info.name + ': ' + info.message);
   }
   initialized = true;
 }
 
-chrome.runtime.onInstalled.addListener(() => init());
-chrome.runtime.onStartup.addListener(() => init());
-init();
+function ensureInit() {
+  if (!initPromise) {
+    initPromise = runInit().catch((err) => {
+      initPromise = null;
+      throw err;
+    });
+  }
+  return initPromise;
+}
+
+chrome.runtime.onInstalled.addListener(() => {
+  ensureInit();
+});
+chrome.runtime.onStartup.addListener(() => {
+  ensureInit();
+});
+ensureInit();
