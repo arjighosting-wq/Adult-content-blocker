@@ -55,7 +55,7 @@ SafeSearch is automatically enabled and locked across search engines to prevent 
 ![CleanShield settings](screenshots/cleanshield-settings.png)
 
 ### Blocked page
-![CleanShield blocked page](screenshots/blocked-page.png)
+![CleanShield blocked page](screenshots/Website-blocked-page.png)
 
 ### SafeSearch
 ![SafeSearch test](screenshots/safesearch-test.png)
