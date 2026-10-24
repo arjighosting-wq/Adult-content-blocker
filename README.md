@@ -52,10 +52,10 @@ SafeSearch is automatically enabled and locked across search engines to prevent 
 ## Screenshots
 
 ### Settings
-![CleanShield settings](assets/screenshots/cleanshield-settings.png)
+![CleanShield settings](screenshots/cleanshield-settings.png)
 
 ### Blocked page
-![CleanShield blocked page](assets/screenshots/blocked-page.png)
+![CleanShield blocked page](screenshots/blocked-page.png)
 
 ### SafeSearch
-![SafeSearch test](assets/screenshots/safesearch-test.png)
+![SafeSearch test](screenshots/safesearch-test.png)
