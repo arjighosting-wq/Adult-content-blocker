@@ -12,10 +12,12 @@
   * **Strict:** Maximum filtering using high-confidence adult blocklists.
   * **Balanced:** Standard protection against adult domains.
   * **Custom:** Filtering based on SafeSearch and your personal allowlist.
-* **SafeSearch Enforcement:** Enforces strict SafeSearch automatically on Google, Bing, DuckDuckGo, and Yandex.
+  **SafeSearch URL enforcement:** Adds the appropriate SafeSearch parameter to supported Google, Bing, DuckDuckGo, and Yandex search URLs. Filtering behavior depends on the search provider
+     and its current implementation; this feature does not guarantee that every explicit result will be filtered.
 * **Admin Password & Lock Mode:** Protect settings with a PBKDF2-hashed password to prevent unauthorized disabling or allowlist changes.
 * **Custom Allowlist:** Easily whitelist trusted websites.
-
+* 
+  Settings Lock: A local password-protected settings interface designed to restrict changes to protection settings and the allowlist on the current device.
 ---
 
 ## 🛠️ Project Structure
@@ -42,14 +44,17 @@
 
 ## 🔒 Privacy & Security
 
-CleanShield runs 100% locally on your browser. No personal data, telemetry, or site tracking information is ever collected or sent to external servers.
+CleanShield is designed to operate locally in the browser without sending browsing activity to a remote analytics or tracking service.
 
-## 📸 Preview
+- **Local settings:** Protection preferences, filtering mode, allowlist entries, and the salted PBKDF2 password hash are stored locally using Chrome storage.
+- **Minimal block information:** The extension temporarily stores the hostname and timestamp of the most recent blocked navigation so the block page can display the information. That record is cleared when the block page reads it.
+- **Aggregate count:** A local counter records blocked navigations.
+- **Permissions:** The extension requests browser permissions needed for its filtering and SafeSearch functionality. See the manifest and permission explanations for details.
+- **Settings lock:** The password lock restricts changes through CleanShield's settings interface on this device. It does not prevent someone with control of the browser from disabling or uninstalling the extension.
 
-### Forced SafeSearch Enforcement
-SafeSearch is automatically enabled and locked across search engines to prevent explicit search results:
+CleanShield does not intentionally transmit this locally stored information to an external server. This description should be kept consistent with the actual source code and any future changes.
 
-## Screenshots
+## 📸 Screenshots
 
 ### Settings
 ![CleanShield settings](screenshots/cleanshield-settings.png)
