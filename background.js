@@ -12,18 +12,12 @@
  * (cleared when the block page reads it) are kept in local storage.
  */
 
-import {
-  compileRules,
-  decide,
-  engineForHost,
-  MAX_DYNAMIC_RULES,
-  normalizeHost,
-  toDnrRules,
-} from './lib/filtering.js';
+import { normalizeHost, toDnrAllowRules, MAX_DYNAMIC_RULES } from './lib/filtering.js';
 
-const RULES_STRICT = chrome.runtime.getURL('rules/strict.json');
-const RULES_BALANCED = chrome.runtime.getURL('rules/balanced.json');
 const RULES_ALLOWLIST = chrome.runtime.getURL('rules/allowlist.json');
+const RULES_METADATA = chrome.runtime.getURL('rules/metadata.json');
+const OWNED_STATIC_RULESETS = ['adult_strict', 'adult_balanced'];
+const BLOCKED_PAGE_URL = chrome.runtime.getURL('blocked.html');
 
 const DEFAULT_SETTINGS = {
   enabled: true,
@@ -35,26 +29,14 @@ const DEFAULT_SETTINGS = {
   heartbeat: 0,
 };
 
-let strictList = [];
-let balancedList = [];
 let embeddedAllow = [];
-let allowlistMap = compileRules([]);
-let activeBlockMap = compileRules([]);
+let blocklistMeta = {
+  strictRuleCount: 0,
+  balancedRuleCount: 0,
+  strictDomainCount: 0,
+  balancedDomainCount: 0,
+};
 let initialized = false;
-
-/** Returns the raw blocklist domains for the given mode. */
-function blocklistForMode(mode) {
-  if (mode === 'strict') return strictList;
-  if (mode === 'balanced') return balancedList;
-  return [];
-}
-
-/** Rebuilds allowlistMap and activeBlockMap from current settings. */
-async function refreshMaps() {
-  const s = await getSettings();
-  allowlistMap = compileRules([...embeddedAllow, ...(s.allowlist || [])]);
-  activeBlockMap = compileRules(blocklistForMode(s.mode));
-}
 
 /* ------------------------------------------------------------------ */
 /* helpers                                                             */
@@ -116,120 +98,130 @@ function errInfo(err) {
   };
 }
 
-function omittedWarning(omittedBlock, omittedAllow) {
-  if (!omittedBlock && !omittedAllow) return null;
-  return (
-    'Rule budget reached: omitted ' +
-    omittedBlock +
-    ' blocklist and ' +
-    omittedAllow +
-    ' allowlist entries (Chrome limit ' +
-    MAX_DYNAMIC_RULES +
-    ').'
-  );
+function normalizeAllowlistDomain(value) {
+  const host = normalizeHost(value);
+  if (!host || host.length > 253 || !host.includes('.') || /[^a-z0-9._-]/i.test(host)) return null;
+  const labels = host.split('.');
+  if (labels.some((label) => !label || label.length > 63 || !/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/i.test(label))) {
+    return null;
+  }
+  return host;
 }
 
-/* ------------------------------------------------------------------ */
-/* rule application                                                    */
-/* ------------------------------------------------------------------ */
+function staticRulesetForMode(mode, enabled) {
+  if (!enabled) return [];
+  if (mode === 'strict') return ['adult_strict'];
+  if (mode === 'balanced') return ['adult_balanced'];
+  return [];
+}
 
-async function applyRules() {
+function staticRuleCountForMode(mode, enabled) {
+  if (!enabled) return 0;
+  if (mode === 'strict') return Number(blocklistMeta.strictRuleCount) || 0;
+  if (mode === 'balanced') return Number(blocklistMeta.balancedRuleCount) || 0;
+  return 0;
+}
+
+/**
+ * Enable the selected packaged blocklist and keep only small user-specific
+ * exceptions plus SafeSearch in the dynamic ruleset. The large adult lists are
+ * static DNR rulesets so Chrome can index them from disk instead of rebuilding
+ * hundreds of thousands of domain checks every service-worker startup.
+ */
+async function applyRulesInternal() {
   const s = await getSettings();
-  const blocklist = s.enabled ? blocklistForMode(s.mode) : [];
-  const allowlist = [...embeddedAllow, ...(s.allowlist || [])];
-  const ssRules = s.enabled ? safeSearchRules() : [];
-  const coreBudget = Math.max(0, MAX_DYNAMIC_RULES - ssRules.length);
-
-  const { rules, blockRuleIds, allowRuleIds, omittedBlock, omittedAllow } = toDnrRules(
-    blocklist,
-    allowlist,
-    100,
-    coreBudget
+  const desiredStatic = staticRulesetForMode(s.mode, s.enabled);
+  const currentlyEnabled = await chrome.declarativeNetRequest.getEnabledRulesets();
+  const enableRulesetIds = desiredStatic.filter((id) => !currentlyEnabled.includes(id));
+  const disableRulesetIds = OWNED_STATIC_RULESETS.filter(
+    (id) => currentlyEnabled.includes(id) && !desiredStatic.includes(id)
   );
 
-  const existing = await chrome.declarativeNetRequest.getDynamicRules();
-  const existingIds = existing.map((r) => r.id);
-
-  const coreRules = [...rules];
-  const fullRules = s.enabled ? [...coreRules, ...ssRules] : coreRules;
-  const warning = omittedWarning(omittedBlock, omittedAllow);
-  const planned = {
-    blocklist: blockRuleIds.length,
-    allowlist: allowRuleIds.length,
-    safeSearch: ssRules.length,
-    total: fullRules.length,
-  };
-
-  console.info('[CleanShield] installing rules', planned);
-
-  const baseState = {
-    blockRuleIds,
-    allowRuleIds,
-    omittedBlock,
-    omittedAllow,
-    warning,
-    planned,
-    appliedAt: Date.now(),
-  };
-
-  try {
-    await chrome.declarativeNetRequest.updateDynamicRules({
-      removeRuleIds: existingIds,
-      addRules: fullRules,
+  if (enableRulesetIds.length || disableRulesetIds.length) {
+    await chrome.declarativeNetRequest.updateEnabledRulesets({
+      enableRulesetIds,
+      disableRulesetIds,
     });
-  } catch (err) {
-    const fullErr = errInfo(err);
-    console.warn(
-      '[CleanShield] updateDynamicRules failed for full ruleset:',
-      fullErr.name + ': ' + fullErr.message
-    );
-    try {
-      await chrome.declarativeNetRequest.updateDynamicRules({
-        removeRuleIds: existingIds,
-        addRules: coreRules,
-      });
-    } catch (err2) {
-      const fallbackErr = errInfo(err2);
-      console.error(
-        '[CleanShield] updateDynamicRules failed for fallback ruleset:',
-        fallbackErr.name + ': ' + fallbackErr.message,
-        '(full ruleset error was ' + fullErr.name + ': ' + fullErr.message + ')'
-      );
-      await chrome.storage.local.set({
-        ruleState: {
-          ...baseState,
-          count: 0,
-          ok: false,
-          usedFallback: true,
-          error: fullErr,
-          fallbackError: fallbackErr,
-        },
-      });
-      throw err2;
-    }
-    await chrome.storage.local.set({
-      ruleState: {
-        ...baseState,
-        count: coreRules.length,
-        ok: true,
-        usedFallback: true,
-        error: fullErr,
-        fallbackError: null,
-      },
-    });
-    return;
   }
 
+  const safeRules = s.enabled ? safeSearchRules() : [];
+  const rawAllowlist = s.enabled ? [...embeddedAllow, ...(s.allowlist || [])] : [];
+  const uniqueAllowlist = [];
+  const seenAllowlist = new Set();
+  let invalidAllowlist = 0;
+  for (const entry of rawAllowlist) {
+    const host = normalizeAllowlistDomain(entry);
+    if (!host) {
+      invalidAllowlist += 1;
+      continue;
+    }
+    if (!seenAllowlist.has(host)) {
+      seenAllowlist.add(host);
+      uniqueAllowlist.push(host);
+    }
+  }
+
+  const allowBudget = Math.max(0, MAX_DYNAMIC_RULES - safeRules.length);
+  const { rules: allowRules, omittedAllow } = toDnrAllowRules(
+    uniqueAllowlist,
+    1,
+    allowBudget
+  );
+  const existing = await chrome.declarativeNetRequest.getDynamicRules();
+  const removeRuleIds = existing.map((rule) => rule.id);
+  const dynamicRules = [...allowRules, ...safeRules];
+  await chrome.declarativeNetRequest.updateDynamicRules({
+    removeRuleIds,
+    addRules: dynamicRules,
+  });
+
+  const effectiveStaticCount = staticRuleCountForMode(s.mode, s.enabled);
+  const warningParts = [];
+  if (invalidAllowlist) warningParts.push(`ignored ${invalidAllowlist} invalid allowlist entr${invalidAllowlist === 1 ? 'y' : 'ies'}`);
+  if (omittedAllow) warningParts.push(`omitted ${omittedAllow} allowlist entries due to Chrome's dynamic-rule budget`);
+  const ruleWarning = warningParts.join('; ');
+  const planned = {
+    mode: s.mode,
+    enabled: s.enabled,
+    staticRuleset: desiredStatic[0] || null,
+    staticRules: effectiveStaticCount,
+    allowlistRules: allowRules.length,
+    safeSearchRules: safeRules.length,
+    total: effectiveStaticCount + dynamicRules.length,
+  };
+
+  console.info('[CleanShield] packaged rulesets and dynamic rules synced', planned);
   await chrome.storage.local.set({
     ruleState: {
-      ...baseState,
-      count: fullRules.length,
+      count: planned.total,
+      staticRuleCount: effectiveStaticCount,
+      dynamicRuleCount: dynamicRules.length,
+      allowlistRuleCount: allowRules.length,
+      safeSearchRuleCount: safeRules.length,
+      planned,
+      warning: ruleWarning,
       ok: true,
-      usedFallback: false,
-      error: null,
-      fallbackError: null,
+      appliedAt: Date.now(),
     },
   });
+}
+
+async function applyRules() {
+  try {
+    await applyRulesInternal();
+  } catch (err) {
+    const info = errInfo(err);
+    await chrome.storage.local.set({
+      ruleState: {
+        count: 0,
+        ok: false,
+        error: info,
+        warning: '',
+        appliedAt: Date.now(),
+      },
+    });
+    throw err;
+  }
 }
 
 function safeSearchRules() {
@@ -253,7 +245,7 @@ function safeSearchRules() {
     },
     {
       host: 'yandex',
-      filter: '^https?://([^/]*\\.)?yandex\\.(com|ru)(?:/(?:search))?\\?(?:[^#]*\\btext=([^&#]*))?.*',
+      filter: '^https?://([^/]*\\.)?yandex\\.(com|ru)(?:/(?:search)/?)?\\?(?:[^#]*\\btext=([^&#]*))?.*',
       sub: 'https://yandex.ru/search/?text=\\3&family=1',
     },
   ];
@@ -272,41 +264,97 @@ function safeSearchRules() {
 /* block page plumbing                                                 */
 /* ------------------------------------------------------------------ */
 
-chrome.webNavigation.onBeforeNavigate.addListener(
-  async (details) => {
-    if (!initialized || details.frameId !== 0) return;
-    const s = await getSettings();
-    if (!s.enabled) return;
-    let url;
-    try {
-      url = new URL(details.url);
-    } catch {
-      return;
-    }
-    const host = normalizeHost(url.hostname);
-    const decision = decide(activeBlockMap, allowlistMap, host);
-    if (decision.action !== 'block') return;
-    await chrome.storage.local.set({
-      pendingBlock: { host: decision.host, ts: Date.now() },
-    });
-    await persistBlockStats();
-  },
-  { url: [{ schemes: ['http', 'https'] }] }
-);
+function isCleanShieldBlockedPage(urlString) {
+  try {
+    const actual = new URL(urlString);
+    const expected = new URL(BLOCKED_PAGE_URL);
+    return actual.protocol === expected.protocol &&
+      actual.host === expected.host &&
+      actual.pathname === expected.pathname;
+  } catch {
+    return false;
+  }
+}
+
+// webNavigation has no onBeforeRedirect event. Capture only one transient
+// hostname per tab at the start of a top-level web navigation; a successful
+// ordinary navigation clears it on commit. When a DNR rule redirects to our
+// block page, blocked.js asks for the hostname and this entry is consumed.
+// We store hostnames in session storage (not local storage) and never keep a
+// browsing-history list.
+const NAV_CANDIDATE_TTL_MS = 15_000;
+const NAV_CANDIDATE_PREFIX = 'cleanshieldNavCandidate:';
+const candidateWrites = new Map();
+
+function candidateKey(tabId) {
+  return `${NAV_CANDIDATE_PREFIX}${tabId}`;
+}
+
+chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
+  if (details.frameId !== 0 || !Number.isInteger(details.tabId) || details.tabId < 0) return;
+  let url;
+  try {
+    url = new URL(details.url);
+  } catch {
+    return;
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
+  const host = normalizeHost(url.hostname);
+  if (!host) return;
+  const key = candidateKey(details.tabId);
+  const candidate = { host, ts: Date.now() };
+  const write = chrome.storage.session.set({ [key]: candidate });
+  candidateWrites.set(details.tabId, write);
+  try {
+    await write;
+  } finally {
+    if (candidateWrites.get(details.tabId) === write) candidateWrites.delete(details.tabId);
+  }
+}, { url: [{ schemes: ['http', 'https'] }] });
+
+chrome.webNavigation.onCommitted.addListener(async (details) => {
+  if (details.frameId !== 0 || !Number.isInteger(details.tabId) || details.tabId < 0) return;
+  const pendingWrite = candidateWrites.get(details.tabId);
+  if (pendingWrite) await pendingWrite.catch(() => {});
+  // A DNR block redirect commits the extension block page. Leave the matching
+  // candidate for blocked.js to retrieve. Any ordinary commit clears it.
+  if (isCleanShieldBlockedPage(details.url)) return;
+  await chrome.storage.session.remove(candidateKey(details.tabId));
+});
 
 /* ------------------------------------------------------------------ */
 /* settings UI messages                                                */
 /* ------------------------------------------------------------------ */
 
-chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-  handleMessage(msg)
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  ensureInit()
+    .then(() => handleMessage(msg, sender))
     .then((result) => sendResponse({ ok: true, ...result }))
     .catch((err) => sendResponse({ ok: false, error: String(err) }));
   return true; // async response
 });
 
-async function handleMessage(msg) {
+async function handleMessage(msg, sender = {}) {
   switch (msg.type) {
+    case 'getBlockedPageDetails': {
+      const senderUrl = sender.url || sender.tab?.url || '';
+      if (!isCleanShieldBlockedPage(senderUrl)) throw new Error('not-block-page');
+      const tabId = sender.tab?.id;
+      if (!Number.isInteger(tabId) || tabId < 0) return { pendingBlock: null };
+      const pendingWrite = candidateWrites.get(tabId);
+      if (pendingWrite) await pendingWrite.catch(() => {});
+      const key = candidateKey(tabId);
+      const stored = await chrome.storage.session.get(key);
+      const candidate = stored[key];
+      await chrome.storage.session.remove(key);
+      candidateWrites.delete(tabId);
+      if (!candidate || !candidate.host || Date.now() - candidate.ts > NAV_CANDIDATE_TTL_MS) {
+        return { pendingBlock: null };
+      }
+      await persistBlockStats();
+      return { pendingBlock: { host: candidate.host, ts: candidate.ts } };
+    }
+
     case 'getStatus': {
       const s = await getSettings();
       const rs = (await chrome.storage.local.get('ruleState')).ruleState || {};
@@ -354,7 +402,6 @@ async function handleMessage(msg) {
       const modes = ['strict', 'balanced', 'custom'];
       if (!modes.includes(msg.mode)) throw new Error('invalid-mode');
       const next = await setSettings({ mode: msg.mode });
-      await refreshMaps();
       await applyRules();
       return { status: next };
     }
@@ -388,11 +435,10 @@ async function handleMessage(msg) {
     case 'addAllowlist': {
       const s = await getSettings();
       if (!settingsAllowedToChange(s)) throw new Error('locked');
-      const host = normalizeHost(msg.domain);
-      if (!host || host.includes('*')) throw new Error('invalid-domain');
+      const host = normalizeAllowlistDomain(msg.domain);
+      if (!host) throw new Error('invalid-domain');
       if (s.allowlist.includes(host)) return { status: s };
       const next = await setSettings({ allowlist: [...s.allowlist, host] });
-      await refreshMaps();
       await applyRules();
       return { status: next };
     }
@@ -402,7 +448,6 @@ async function handleMessage(msg) {
       if (!settingsAllowedToChange(s)) throw new Error('locked');
       const nextList = s.allowlist.filter((d) => d !== msg.domain);
       const next = await setSettings({ allowlist: nextList });
-      await refreshMaps();
       await applyRules();
       return { status: next };
     }
@@ -417,14 +462,24 @@ async function handleMessage(msg) {
 /* ------------------------------------------------------------------ */
 
 async function loadRules() {
-  const [strict, balanced, allow] = await Promise.all([
-    fetch(RULES_STRICT).then((r) => r.json()),
-    fetch(RULES_BALANCED).then((r) => r.json()),
-    fetch(RULES_ALLOWLIST).then((r) => r.json()),
+  const [allowResult, metadataResult] = await Promise.allSettled([
+    fetch(RULES_ALLOWLIST).then((r) => {
+      if (!r.ok) throw new Error(`HTTP ${r.status} loading allowlist`);
+      return r.json();
+    }),
+    fetch(RULES_METADATA).then((r) => {
+      if (!r.ok) throw new Error(`HTTP ${r.status} loading blocklist metadata`);
+      return r.json();
+    }),
   ]);
-  strictList = strict;
-  balancedList = balanced;
-  embeddedAllow = Array.isArray(allow) ? allow : [];
+  embeddedAllow = allowResult.status === 'fulfilled' && Array.isArray(allowResult.value)
+    ? allowResult.value
+    : [];
+  if (metadataResult.status === 'fulfilled' && metadataResult.value && typeof metadataResult.value === 'object') {
+    blocklistMeta = { ...blocklistMeta, ...metadataResult.value };
+  } else {
+    console.warn('[CleanShield] blocklist metadata could not be loaded; rule counts may be unavailable');
+  }
 }
 
 let initPromise = null;
@@ -438,7 +493,6 @@ async function runInit() {
   }
   await setSettings({ heartbeat: Date.now() });
   await chrome.storage.local.set({ lastHeartbeat: Date.now() });
-  await refreshMaps();
   try {
     await applyRules();
   } catch (err) {

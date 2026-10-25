@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "CleanShield — Adult Content Blocker",
-  "version": "1.0.0",
-  "description": "Privacy-focused adult content blocker. Blocks known adult domains, enforces SafeSearch on major search engines, and shows a clean block page.",
+  "version": "1.1.0",
+  "description": "Privacy-focused adult content blocker. Blocks domains from packaged adult-content lists, enforces SafeSearch on major search engines, and shows a clean block page.",
   "minimum_chrome_version": "114",
   "permissions": [
     "declarativeNetRequest",
@@ -10,7 +10,9 @@
     "webNavigation",
     "tabs"
   ],
-  "host_permissions": ["<all_urls>"],
+  "host_permissions": [
+    "<all_urls>"
+  ],
   "background": {
     "service_worker": "background.js",
     "type": "module"
@@ -25,12 +27,30 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["blocked.html"],
-      "matches": ["<all_urls>"]
+      "resources": [
+        "blocked.html"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ],
   "icons": {
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
+  },
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "adult_strict",
+        "enabled": false,
+        "path": "rules/strict.json"
+      },
+      {
+        "id": "adult_balanced",
+        "enabled": true,
+        "path": "rules/balanced.json"
+      }
+    ]
   }
 }

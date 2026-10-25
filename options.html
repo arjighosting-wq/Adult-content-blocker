@@ -24,11 +24,11 @@
         </label>
       </div>
       <div class="row">
-        <span>Blocklist rules applied</span>
+        <span>Active rules</span>
         <span id="rulesApplied" class="mono">0</span>
       </div>
       <div class="row">
-        <span>Total blocked requests (aggregate only)</span>
+        <span>Blocked navigations (aggregate only)</span>
         <span id="blockedCount" class="mono">0</span>
       </div>
       <div class="row">
@@ -49,9 +49,9 @@
         <button data-mode="custom">Custom</button>
       </div>
       <p class="muted small">
-        Strict blocks the highest-confidence adult domains; Balanced uses the
-        standard list; Custom blocks nothing automatically (only SafeSearch and
-        your allowlist apply).
+        Strict uses the full packaged adult-domain list. Balanced uses a
+        conservative starter list of 60 domains and may miss many adult sites.
+        Custom blocks no domains automatically; SafeSearch remains available.
       </p>
     </section>
 

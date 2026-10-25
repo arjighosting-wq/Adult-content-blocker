@@ -1,0 +1,7 @@
+CleanShield — Yandex SafeSearch hotfix
+
+This patch replaces only background.js. It adjusts the Yandex matching pattern to accept both /search and /search/ paths, including the trailing slash used in URLs like https://yandex.com/search/?text=cats.
+
+Apply: extract this ZIP, copy background.js into your existing CleanShield project folder, replacing background.js only, then open chrome://extensions and click Reload for CleanShield. Test https://yandex.com/search/?text=cats and check that the final URL contains family=1.
+
+Do not replace manifest.json or the rules files.

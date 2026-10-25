@@ -1,0 +1,25 @@
+CleanShield service-worker registration fix
+
+Cause:
+The Chrome webNavigation API does not provide onBeforeRedirect. Registering
+chrome.webNavigation.onBeforeRedirect.addListener(...) throws because that
+property is undefined, preventing the Manifest V3 service worker from starting.
+
+Apply:
+1. Close the CleanShield extension Errors pane.
+2. Extract this ZIP.
+3. Copy background.js and blocked.js into the root of your current CleanShield
+   project folder, replacing those two files only.
+4. Open chrome://extensions and click Reload on CleanShield.
+5. Check Errors. The service worker should now start.
+6. Test one known domain in the selected blocklist and then verify SafeSearch on
+   Google, Bing, DuckDuckGo, and Yandex.
+
+Implementation notes:
+- Uses supported webNavigation.onBeforeNavigate and onCommitted events.
+- Keeps only a transient hostname candidate in chrome.storage.session per tab,
+  clears it after a normal top-level navigation commits, and consumes it once
+  when blocked.js requests details.
+- Does not store full URLs or add a persistent browsing-history log.
+- These files passed JavaScript syntax checks, but should still be tested in
+  Chrome after reload.
