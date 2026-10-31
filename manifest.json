@@ -2,13 +2,12 @@
   "manifest_version": 3,
   "name": "CleanShield — Adult Content Blocker",
   "version": "1.1.0",
-  "description": "Privacy-focused adult content blocker. Blocks domains from packaged adult-content lists, enforces SafeSearch on major search engines, and shows a clean block page.",
+  "description": "Blocks adult domains, enforces SafeSearch on major search engines, and displays a clear block page.",
   "minimum_chrome_version": "114",
   "permissions": [
     "declarativeNetRequest",
     "storage",
-    "webNavigation",
-    "tabs"
+    "webNavigation"
   ],
   "host_permissions": [
     "<all_urls>"

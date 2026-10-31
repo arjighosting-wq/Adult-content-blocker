@@ -7,9 +7,10 @@
  *   - Manage settings, admin password, and locked mode.
  *   - Emit a heartbeat for tamper/disable detection (aggregate only; no history).
  *
- * Privacy: we never store browsing history. Only an aggregate block counter and
- * the hostname plus timestamp of the single most recent blocked navigation
- * (cleared when the block page reads it) are kept in local storage.
+ * Privacy: we do not maintain a browsing-history list. The aggregate blocked
+ * counter and settings are stored in local extension storage. A single
+ * per-tab hostname and timestamp is held briefly in session storage for the
+ * blocked-page display, then consumed or cleared after navigation.
  */
 
 import { normalizeHost, toDnrAllowRules, MAX_DYNAMIC_RULES } from './lib/filtering.js';

@@ -1,6 +1,6 @@
 # CleanShield Privacy Policy
 
-**Effective date:** October 25, 2026
+**Effective date:** October 26, 2026
 
 CleanShield is a Chrome extension that blocks domains in its packaged adult-content lists, applies SafeSearch settings to supported search engines, and lets users manage an allowlist and optional settings lock.
 
@@ -31,10 +31,11 @@ Temporary hostname entries are stored in Chrome session storage and are removed 
 
 ## Permissions
 
+CleanShield requests only the permissions listed below for its current features.
+
 - **declarativeNetRequest:** applies packaged adult-domain blocking rules, allowlist exceptions, and SafeSearch redirects.
 - **storage:** stores settings locally and temporarily stores the hostname needed for the blocked page.
 - **webNavigation:** observes top-level navigation events to supply the blocked-page hostname and clear temporary entries.
-- **tabs:** included in the extension's declared permissions; tab-related functionality is used for the blocked-page experience.
 - **Host access (`<all_urls>`):** permits the extension to apply protection across websites and observe the navigation URL information needed for the blocking experience.
 
 ## Children's privacy
