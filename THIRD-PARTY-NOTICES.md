@@ -25,9 +25,12 @@ in `BLOCKLIST-SOURCE.md`.
 The two upstream sources retain their own separate licensing notices. The
 combined CleanShield-generated rules are derived data and should not be
 misrepresented as having one single upstream licence. Preserve these notices
-when redistributing the source snapshots or generated data.
+when redistributing the generated data. The original source snapshots and
+reproducible generation scripts are retained in the public source repository.
 
 The upstream lists are community-maintained classifications. They may contain
 stale entries or false positives and are provided without a guarantee that
-every listed hostname currently serves adult content. CleanShield must provide
-a way to report false positives and maintain a documented update process.
+every listed hostname currently serves adult content. Users should be able to
+report possible false positives through the support contact published in the
+Chrome Web Store listing. Before publishing, configure a monitored support
+contact and review reports as part of the documented blocklist update process.

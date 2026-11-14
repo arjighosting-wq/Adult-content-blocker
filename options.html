@@ -41,6 +41,22 @@
       </div>
     </section>
 
+
+    <section class="card" aria-labelledby="hostnamePrivacyTitle">
+      <h2 id="hostnamePrivacyTitle">Website hostname privacy</h2>
+      <p class="muted small">
+        When protection is enabled in Strict or Balanced mode, CleanShield
+        briefly reads the hostname of each top-level HTTP or HTTPS navigation
+        so its blocked page can identify a blocked site. It stores only the
+        hostname and timestamp temporarily in Chrome session storage—not the
+        full URL, page content, or search terms. Ordinary navigation commits,
+        failed navigations, and tab closure clear the entry; the blocked page
+        consumes it when shown. This information is not sent to a CleanShield
+        server. Hostname capture is off when protection is disabled or Custom
+        mode is selected.
+      </p>
+    </section>
+
     <section class="card">
       <h2>Mode</h2>
       <div class="seg">
@@ -49,9 +65,10 @@
         <button data-mode="custom">Custom</button>
       </div>
       <p class="muted small">
-        Strict uses the full packaged adult-domain list. Balanced uses a
-        conservative starter list of 60 domains and may miss many adult sites.
-        Custom blocks no domains automatically; SafeSearch remains available.
+        Strict uses the combined coverage of both packaged adult-domain lists.
+        Balanced uses the overlapping coverage shared by the two sources, so it
+        is more selective and may miss sites found in only one source. Custom
+        blocks no domains automatically; SafeSearch remains available.
       </p>
     </section>
 

@@ -51,8 +51,8 @@ subdomains. The generated counts are:
 
 | Mode | Source-derived entries before compression | `requestDomains` patterns | Static rules |
 |---|---:|---:|---:|
-| Strict | 278,190 | 256,545 | 1,114 |
-| Balanced | 33,330 | 21,814 | 134 |
+| Strict | 278,190 | 256,545 | 1,028 |
+| Balanced | 33,330 | 21,814 | 88 |
 
 Redundant descendants removed: **21,645** in Strict and **11,516** in Balanced. A coverage-equivalence check verified that compressing the patterns preserves all source-derived suffix matches.
 
