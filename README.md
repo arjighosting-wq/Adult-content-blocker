@@ -57,8 +57,10 @@ CleanShield does not intentionally transmit this locally stored information to a
 ## 📸 Screenshots
 
 ### Settings
-![CleanShield settings](screenshots/cleanshield-settings.png)
-
+![CleanShield settings](CleanShield-chrome-screenshots/CleanShield-chrome-Screenshot-1.png)
+![CleanShield settings](CleanShield-chrome-screenshots/CleanShield-chrome-Screenshot-2.png)
+![CleanShield settings](CleanShield-chrome-screenshots/CleanShield-chrome-Screenshot-3.png)
+![CleanShield settings](CleanShield-chrome-screenshots/CleanShield-chrome-Screenshot-4.png)
 ### Blocked page
 ![CleanShield blocked page](screenshots/Website-blocked-page.png)
 
